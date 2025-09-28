@@ -1,0 +1,66 @@
+<div class="improved-mentees-block">
+  <div>Form Action: {{formaction}}</div>
+  <form method="get" action="{{formaction}}">
+    <div class="improved-mentees-select">
+      <label for="improvedmentees_menteeid">
+        {{#str}}selectmentees, block_improvedmentees{{/str}}
+      </label>
+
+      <select id="improvedmentees_menteeid" name="improvedmentees_menteeid">
+        {{#mentees}}
+          <option value="{{id}}" {{#isSelected}}selected{{/isSelected}}>
+            {{fullname}} ({{username}})
+          </option>
+        {{/mentees}}
+      </select>
+
+      <input type="submit" value="{{#str}}show, block_improvedmentees{{/str}}">
+    </div>
+  </form>
+
+
+  {{#selected}}
+    {{#error}}
+      <div class="notification error">{{error}}</div>
+    {{/error}}
+
+    {{^error}}
+      <h4>{{#str}}menteedetails,block_improvedmentees{{/str}}</h4>
+      <div class="mentee-name">{{fullname}} ({{username}})</div>
+
+      {{#courses}}
+        <div class="improved-mentees-course">
+          <h5>{{fullname}}</h5>
+          {{#overallpercentage}}
+            <div class="overall-grade">
+              {{#str}}overallgrade,block_improvedmentees{{/str}}: {{overallpercentage}}%
+            </div>
+          {{/overallpercentage}}
+          {{^overallpercentage}}
+            <div class="nograde">{{#str}}nogradeavailable,block_improvedmentees{{/str}}</div>
+          {{/overallpercentage}}
+
+          {{#outstanding}}
+            <ul>
+              {{#outstanding}}
+                <li>
+                  {{name}} — 
+                  {{#duedate}}
+                    {{duedate}}
+                  {{/duedate}}
+                  {{^duedate}}
+                    {{#str}}noduedate,block_improvedmentees{{/str}}
+                  {{/duedate}}
+                </li>
+              {{/outstanding}}
+            </ul>
+          {{/outstanding}}
+          {{^outstanding}}
+            <div class="no-outstanding">{{#str}}nooutstanding,block_improvedmentees{{/str}}</div>
+          {{/outstanding}}
+        </div>
+      {{/courses}}
+    {{/error}}
+  {{/selected}}
+</div>
+
