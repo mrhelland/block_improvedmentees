@@ -34,85 +34,67 @@ class block_improvedmentees extends block_base {
     }
 
     /**
-     * Returns the block contents.
-     *
-     * @return stdClass block content object
+     * Get block content.
      */
     public function get_content() {
-        global $USER, $OUTPUT;
+        global $USER;
 
         if ($this->content !== null) {
             return $this->content;
         }
 
         $this->content = new stdClass();
-        $this->content->text = '';
+        $data = new stdClass();
 
+        // Determine which mentee is currently selected.
+        $selectedid = optional_param('improvedmentees_menteeid', 0, PARAM_INT);
+        $data->selectedid = $selectedid;
+
+        // Get available mentees.
         $mentees = $this->get_available_mentees($USER->id);
-
         if (empty($mentees)) {
             $this->content->text = get_string('nomentees', 'block_improvedmentees');
             return $this->content;
         }
 
-        $data = new stdClass();
-        $data->mentees = [];
-        $data->selectedid = optional_param('improvedmentees_menteeid', 0, PARAM_INT);
-
-        foreach ($mentees as $id => $mentee) {
-            $opt = new stdClass();
-            $opt->id = $id;
-            $opt->fullname = fullname($mentee);
-            $usernameparts = explode("@",$mentee->username);
-            $opt->username = $usernameparts[0];
-            $opt->isSelected = ($id == $data->selectedid);
-            $data->mentees[] = $opt;
-        }
-
-        if ($data->selectedid) {
-            $data->selected = $this->get_user_by_id($data->selectedid);
-            // later you’ll also add $data->courses etc. for template rendering
-        }
-
-        if ($this->page->context->contextlevel === CONTEXT_COURSE
-            && !empty($this->page->course->id)
-            && $this->page->course->id > 1) {
-            // Always keep course id in form action.
-            $params = $this->page->url->params();
-            $params['id'] = $this->page->course->id;
-            $data->formaction = new moodle_url('/course/view.php', $params);
-
+        // Determine base URL depending on context.
+        if ($this->page->context->contextlevel === CONTEXT_COURSE &&
+            !empty($this->page->course->id) && $this->page->course->id > 1) {
+            $baseurl = new moodle_url('/course/view.php', ['id' => $this->page->course->id]);
         } else if ($this->page->pagelayout === 'mydashboard') {
-            $data->formaction = new moodle_url('/my/');
-
+            $baseurl = new moodle_url('/my/');
         } else if ($this->page->pagelayout === 'frontpage') {
-            $params = $this->page->url->params();
-            $data->formaction = new moodle_url('/index.php', $params);
-
+            $baseurl = new moodle_url('/index.php', $this->page->url->params());
         } else {
-            $data->formaction = $this->page->url;
+            $baseurl = $this->page->url;
         }
 
-        $data->formaction = $data->formaction->out(false);
-
-        // Use renderer for dropdown and course display.
-        $renderer = $this->page->get_renderer('block_improvedmentees');
-        $this->content->text = $renderer->render_block_content($data);
-
-        // Debugging: log page details to see what's going on.
-        $debuginfo = [
-            'url'       => $this->page->url->out(false),
-            'url_params'=> $this->page->url->params(),
-            'context'   => $this->page->context->contextlevel ?? 'none',
-            'courseid'  => $this->page->course->id ?? 'none',
-            'pagelayout'=> $this->page->pagelayout ?? 'none',
+        // "Show all" link.
+        $url = clone($baseurl);
+        $url->param('improvedmentees_menteeid', 0);
+        $data->showall = (object)[
+            'url' => $url->out(false),
+            'isSelected' => ($selectedid == 0)
         ];
 
-        // Option 1: Write to Moodle log (developer debugging enabled).
-        error_log('[ImprovedMentees Debug] ' . json_encode($debuginfo));
+        // Mentee links.
+        $data->mentees = [];
+        foreach ($mentees as $mentee) {
+            $url = clone($baseurl);
+            $url->param('improvedmentees_menteeid', $mentee->id);
 
-        // Option 2: Show inline in block (only do this in dev!).
-        $this->content->text .= html_writer::tag('pre', s(print_r($debuginfo, true)));
+            $data->mentees[] = (object)[
+                'id' => $mentee->id,
+                'fullname' => fullname($mentee),
+                'username' => $mentee->username,
+                'url' => $url->out(false),
+                'isSelected' => ($selectedid == $mentee->id)
+            ];
+        }
+
+        // Render Mustache template.
+        $renderer = $this->page->get_renderer('block_improvedmentees');
+        $this->content->text = $renderer->render_block_content($data);
 
         return $this->content;
     }

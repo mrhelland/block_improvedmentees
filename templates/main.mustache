@@ -1,23 +1,16 @@
 <div class="improved-mentees-block">
-  <div>Form Action: {{formaction}}</div>
-  <form method="get" action="{{formaction}}">
-    <div class="improved-mentees-select">
-      <label for="improvedmentees_menteeid">
-        {{#str}}selectmentees, block_improvedmentees{{/str}}
-      </label>
-
-      <select id="improvedmentees_menteeid" name="improvedmentees_menteeid">
-        {{#mentees}}
-          <option value="{{id}}" {{#isSelected}}selected{{/isSelected}}>
+  <div class="improved-mentees-list">
+    <h5>Select a mentee</h5>
+    <ul>
+      {{#mentees}}
+        <li>
+          <a href="{{url}}" class="{{#isSelected}}active{{/isSelected}}">
             {{fullname}} ({{username}})
-          </option>
-        {{/mentees}}
-      </select>
-
-      <input type="submit" value="{{#str}}show, block_improvedmentees{{/str}}">
-    </div>
-  </form>
-
+          </a>
+        </li>
+      {{/mentees}}
+    </ul>
+  </div>
 
   {{#selected}}
     {{#error}}
