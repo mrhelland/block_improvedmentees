@@ -25,7 +25,7 @@
                 <a href="{{url}}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center bg-secondary">
                   <strong>{{fullname}}</strong>
                   {{#gradepercentage}}
-                    <span class="badge bg-primary rounded-pill text-white improved-mentees-badge-lg">
+                    <span class="badge bg-primary rounded-pill text-white">
                       {{gradepercentage}}%
                     </span>
                   {{/gradepercentage}}
@@ -36,23 +36,22 @@
                   {{/gradepercentage}}
                 </a>
 
+                
                 {{#hasmissingassignments}}
-                  <div class="list-group-item ms-2 mt-1">
-                    <strong>{{#str}} missingassignments, block_improvedmentees {{/str}}:</strong> <span>{{missingassignmentcount}}</span>
-                  </div>
-                  <div class="list-group ms-4 mt-1">
-                    {{#missingassignments}}
-                      <a href="{{url}}" class="list-group-item list-group-item-action">
-                        {{name}}
-                      </a>
-                    {{/missingassignments}}
-                  </div>
-                {{/hasmissingassignments}}
-                {{^hasmissingassignments}}
-                  <div class="list-group-item ms-2 mt-1">
-                    {{#str}} nomissingassignments, block_improvedmentees {{/str}}
-                  </div>
-                {{/hasmissingassignments}}
+                    <div class="list-group-item ms-2 mt-1">Missing Assignments <span>{{#missingassignmentcount}}</div>
+                    <div class="list-group ms-4 mt-1">
+                      {{#missingassignments}}
+                        <a href="{{url}}" class="list-group-item list-group-item-action">
+                          {{name}}
+                        </a>
+                      {{/missingassignments}}
+                    </div>
+                  {{/hasmissingassignments}}
+                  {{^hasmissingassignments}}
+                    <div class="list-group-item ms-2 mt-1">
+                      {{#str}} nomissingassignments, block_improvedmentees {{/str}}
+                    </div>
+                  {{/hasmissingassignments}}
 
               {{/courses}}
             </div>

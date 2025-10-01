@@ -5,6 +5,8 @@
 // Provides enhanced mentor/mentee tracking functionality.
 
 defined('MOODLE_INTERNAL') || die();
+require_once($CFG->libdir.'/gradelib.php');
+require_once($CFG->dirroot.'/grade/querylib.php'); // ✅ add this
 
 /**
  * Class block_improvedmentees
@@ -44,11 +46,17 @@ class block_improvedmentees extends block_base {
         }
 
         $this->content = new stdClass();
-        $data = new stdClass();
+        $this->content->text = '';
 
         // Determine which mentee is currently selected.
-        $selectedid = optional_param('improvedmentees_menteeid', 0, PARAM_INT);
-        $data->selectedid = $selectedid;
+        
+
+        $data = new stdClass();
+        $data->mentees = [];        
+        $data->selectedmenteeid = optional_param('improvedmentees_menteeid', 0, PARAM_INT);
+        $data->selectedcourseid = optional_param('improvedmentees_courseid', 0, PARAM_INT);
+        $selectedmenteeid = $data->selectedmenteeid;
+        $selectedcourseid = $data->selectedcourseid;
 
         // Get available mentees.
         $mentees = $this->get_available_mentees($USER->id);
@@ -72,25 +80,79 @@ class block_improvedmentees extends block_base {
         // "Show all" link.
         $url = clone($baseurl);
         $url->param('improvedmentees_menteeid', 0);
+        $url->param('improvedmentees_courseid', 0);
         $data->showall = (object)[
             'url' => $url->out(false),
-            'isSelected' => ($selectedid == 0)
+            'isSelected' => ($selectedmenteeid == 0)
         ];
 
         // Mentee links.
-        $data->mentees = [];
+
+        $now = time(); // Current timestamp.
         foreach ($mentees as $mentee) {
             $url = clone($baseurl);
             $url->param('improvedmentees_menteeid', $mentee->id);
 
-            $data->mentees[] = (object)[
+            $menteedata = (object)[
                 'id' => $mentee->id,
                 'fullname' => fullname($mentee),
-                'username' => $mentee->username,
+                'username' => strstr($mentee->username, '@', true),
                 'url' => $url->out(false),
-                'isSelected' => ($selectedid == $mentee->id)
+                'isSelected' => ($selectedmenteeid == $mentee->id),
+                'courses' => []
             ];
+
+            // Only load courses if this mentee is selected (optional, for performance).
+            if ($selectedmenteeid == $mentee->id) {
+                $courses = $this->get_mentee_courses($mentee->id);             
+
+                foreach ($courses as $course) {
+
+                    // Get missing assignments for this course/mentee.
+                    $missingassignments = $this->get_assignments_due_without_submission_modassign($course->id, $mentee->id, $now);
+
+                    print_object($missingassignments);
+
+                    $missingassignmentdata = [];
+                    foreach ($missingassignments as $assign) {
+                        $missingassignmentdata[] = (object)[
+                            'id' => $assign->id,
+                            'name' => format_string($assign->name),
+                            'url' => (new moodle_url('/mod/assign/view.php', ['id' => $assign->id]))->out(false)
+                       
+                        ];
+                    }
+
+
+                    // ✅ Get overall course grade for this user.
+                    $coursegrade = grade_get_course_grade($mentee->id, $course->id);
+                    $percentage = null;
+                    if (!empty($coursegrade) && isset($coursegrade->grade)) {
+                        $percentage = $coursegrade->grade; // This is the final grade (usually already a percentage).
+                    }
+
+                    print_object($coursegrade);
+
+                    $menteedata->courses[] = (object)[
+                        'id' => $course->id,
+                        'fullname' => format_string($course->fullname),
+                        'url' => (new moodle_url('/course/view.php', ['id' => $course->id]))->out(false),
+                        'missingassignments' => $missingassignmentdata,
+                        'missingassignmentcount' => count($missingassignmentdata),
+                        'hasmissingassignments' => !empty($missingassignmentdata),
+                        'gradepercentage' => format_float($percentage, 1)
+                    ];
+                }
+                $menteedata->hascourses = !empty($menteedata->courses);
+            }
+            else {
+                $menteedata->hascourses = false;
+            }
+
+            $data->mentees[] = $menteedata;            
         }
+
+
 
         // Render Mustache template.
         $renderer = $this->page->get_renderer('block_improvedmentees');
@@ -140,6 +202,52 @@ class block_improvedmentees extends block_base {
             'id, firstname, lastname, username', IGNORE_MISSING);
     }
 
+
+    /**
+     * Get all courses a mentee is enrolled in, sorted by course fullname.
+     *
+     * @param int $menteeid The mentee's user id.
+     * @return array Associative array of course stdClass objects keyed by course id.
+     */
+    protected function get_mentee_courses(int $menteeid): array {
+        global $CFG;
+
+        // Ensure enrol API is available.
+        require_once($CFG->dirroot . '/lib/enrollib.php');
+
+        // Get all courses the user is enrolled in (only active enrolments).
+        // Returns an array of course objects (often keyed by course id).
+        $courses = enrol_get_all_users_courses($menteeid, true, '*');
+
+        if (empty($courses)) {
+            return [];
+        }
+
+        // Ensure we have a numerically indexed array for sorting.
+        $coursesarr = array_values($courses);
+
+        // Defensive: ensure fullname exists and sort by case-insensitive name.
+        usort($coursesarr, function($a, $b) {
+            $an = isset($a->fullname) ? $a->fullname : '';
+            $bn = isset($b->fullname) ? $b->fullname : '';
+            return strcasecmp($an, $bn);
+        });
+
+        // Re-key the sorted list by course id for convenient lookup.
+        $sorted = [];
+        foreach ($coursesarr as $c) {
+            // Defensive check: skip invalid entries.
+            if (empty($c) || empty($c->id)) {
+                continue;
+            }
+            $sorted[(int)$c->id] = $c;
+        }
+
+        return $sorted;
+    }
+
+
+
     /**
      * Use mod_assign class API to get assignments that:
      * - belong to the given course
@@ -163,7 +271,7 @@ class block_improvedmentees extends block_base {
             require_once($CFG->dirroot . '/mod/assign/locallib.php');
 
             // Load course modules information.
-            $modinfo = get_fast_modinfo($courseid);
+            $modinfo = get_fast_modinfo($courseid, $userid);
 
             // Get all assignment modules in this course.
             $assigncms = $modinfo->get_instances_of('assign');

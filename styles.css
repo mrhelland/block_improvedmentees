@@ -3,3 +3,4 @@
 .improved-mentees-course { border-top: 1px solid #ddd; padding-top: 8px; margin-top: 8px; }
 .improved-mentees-course h5 { margin: 0 0 4px 0; }
 .notification.error { color: #a94442; background: #f2dede; padding: 6px; border-radius: 4px; }
+.improved-mentees-badge-lg { font-size: 0.9rem !important; padding: 0.5em;}
